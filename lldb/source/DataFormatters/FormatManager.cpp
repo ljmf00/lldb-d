@@ -575,7 +575,12 @@ FormatManager::GetCandidateLanguages(lldb::LanguageType lang_type) {
   case lldb::eLanguageTypeC_plus_plus_03:
   case lldb::eLanguageTypeC_plus_plus_11:
   case lldb::eLanguageTypeC_plus_plus_14:
-    return {lldb::eLanguageTypeC_plus_plus, lldb::eLanguageTypeObjC};
+    return {
+      lldb::eLanguageTypeC_plus_plus,
+      lldb::eLanguageTypeObjC,
+      // FIXME: Add a proper TypeSystem for D
+      lldb::eLanguageTypeD
+    };
   default:
     return {lang_type};
   }
