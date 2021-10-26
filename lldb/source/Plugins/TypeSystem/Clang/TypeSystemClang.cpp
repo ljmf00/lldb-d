@@ -5145,6 +5145,8 @@ lldb::Format TypeSystemClang::GetFormat(lldb::opaque_compiler_type_t type) {
     case clang::BuiltinType::UChar:
     case clang::BuiltinType::WChar_U:
       return lldb::eFormatChar;
+    case clang::BuiltinType::Char8:
+      return lldb::eFormatUnicode8;
     case clang::BuiltinType::Char16:
       return lldb::eFormatUnicode16;
     case clang::BuiltinType::Char32:
