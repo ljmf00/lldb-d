@@ -36,5 +36,13 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_pair("_D8demangle4testZ", "demangle.test"),
         std::make_pair("_D8demangle4test5test2Z", "demangle.test.test2"),
         std::make_pair("_D8demangle9anonymous0Z", "demangle.anonymous"),
-        std::make_pair("_D8demangle9anonymous03fooZ",
-                       "demangle.anonymous.foo")));
+        std::make_pair("_D8demangle9anonymous03fooZ", "demangle.anonymous.foo"),
+        std::make_pair("_D8demangle4test6__initZ",
+                       "initializer for demangle.test"),
+        std::make_pair("_D8demangle4test6__vtblZ", "vtable for demangle.test"),
+        std::make_pair("_D8demangle4test7__ClassZ",
+                       "ClassInfo for demangle.test"),
+        std::make_pair("_D8demangle4test11__InterfaceZ",
+                       "Interface for demangle.test"),
+        std::make_pair("_D8demangle4test12__ModuleInfoZ",
+                       "ModuleInfo for demangle.test")));
