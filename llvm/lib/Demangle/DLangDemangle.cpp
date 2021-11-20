@@ -199,6 +199,15 @@ const char *Demangler::parseQualified(OutputBuffer *Demangled,
 
   size_t N = 0;
   do {
+    // Skip over anonymous symbols.
+    if (*Mangled == '0') {
+      do
+        ++Mangled;
+      while (*Mangled == '0');
+
+      continue;
+    }
+
     if (N++)
       *Demangled << '.';
 
