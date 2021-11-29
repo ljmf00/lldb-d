@@ -14,6 +14,8 @@
 #include "lldb/Target/Target.h"
 #include "lldb/lldb-enumerations.h"
 
+#include "Plugins/SymbolFile/DWARF/DWARFASTParserD.h"
+
 namespace lldb_private {
 
 class TypeSystemD : public TypeSystem {
@@ -43,6 +45,8 @@ public:
   static void Initialize();
 
   static void Terminate();
+
+  DWARFASTParser *GetDWARFParser() override;
 
   // Dumping types
 #ifndef NDEBUG
@@ -330,6 +334,9 @@ public:
 
   CompilerType GetFunctionArgumentAtIndex(lldb::opaque_compiler_type_t type,
                                           const size_t index) override;
+
+private:
+  std::unique_ptr<DWARFASTParserD> m_dwarf_ast_parser_up;
 };
 
 } // namespace lldb_private

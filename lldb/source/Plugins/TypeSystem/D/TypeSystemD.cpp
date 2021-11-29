@@ -63,6 +63,12 @@ lldb::TypeSystemSP TypeSystemD::CreateInstance(lldb::LanguageType language,
   return lldb::TypeSystemSP();
 }
 
+DWARFASTParser *TypeSystemD::GetDWARFParser() {
+  if (!m_dwarf_ast_parser_up)
+    m_dwarf_ast_parser_up = std::make_unique<DWARFASTParserD>(*this);
+  return m_dwarf_ast_parser_up.get();
+}
+
 #ifndef NDEBUG
 LLVM_DUMP_METHOD void
 TypeSystemD::dump(lldb::opaque_compiler_type_t type) const {}
