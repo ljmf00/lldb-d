@@ -9,8 +9,11 @@
 #ifndef LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFATTRIBUTE_H
 #define LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFATTRIBUTE_H
 
+#include "DWARFDIE.h"
 #include "DWARFDefines.h"
 #include "DWARFFormValue.h"
+#include "lldb/Core/Declaration.h"
+#include "lldb/Utility/ConstString.h"
 #include "llvm/ADT/SmallVector.h"
 #include <vector>
 
@@ -75,6 +78,81 @@ protected:
   };
   typedef llvm::SmallVector<AttributeValue, 8> collection;
   collection m_infos;
+};
+
+FLAGS_ENUM(DWARFAttributeFlags)
+{
+  /// Whether it is an artificially generated symbol.
+  eDWARFAttributeIsArtificial = (1u << 0),
+  eDWARFAttributeIsExplicit = (1u << 1),
+  eDWARFAttributeIsForwardDecl = (1u << 2),
+  eDWARFAttributeIsInline = (1u << 3),
+  eDWARFAttributeIsScopedEnum = (1u << 4),
+  eDWARFAttributeIsVector = (1u << 5),
+  eDWARFAttributeIsVirtual = (1u << 6),
+  eDWARFAttributeIsExternal = (1u << 7),
+  eDWARFAttributeExportSymbols = (1u << 8),
+  eDWARFAttributeIsObjCDirect = (1u << 9),
+  eDWARFAttributeIsObjCCompleteType = (1u << 10),
+};
+
+/// Parsed form of all attributes that are relevant for type reconstruction.
+/// Some attributes are relevant for all kinds of types (declaration), while
+/// others are only meaningful to a specific type (is_virtual).
+struct ParsedDWARFTypeAttributes {
+  explicit ParsedDWARFTypeAttributes(const DWARFDIE &die);
+
+  lldb::AccessType accessibility = lldb::eAccessNone;
+  uint32_t attr_flags = 0;
+  const char *mangled_name = nullptr;
+  lldb_private::ConstString name;
+  lldb_private::Declaration decl;
+  DWARFDIE object_pointer;
+  DWARFFormValue abstract_origin;
+  DWARFFormValue containing_type;
+  DWARFFormValue signature;
+  DWARFFormValue specification;
+  DWARFFormValue type;
+  lldb::LanguageType class_language = lldb::eLanguageTypeUnknown;
+  llvm::Optional<uint64_t> byte_size;
+  size_t calling_convention = llvm::dwarf::DW_CC_normal;
+  uint32_t bit_stride = 0;
+  uint32_t byte_stride = 0;
+  uint32_t encoding = 0;
+
+  bool is_artificial() const {
+    return attr_flags & eDWARFAttributeIsArtificial;
+  }
+  bool is_explicit() const {
+    return attr_flags & eDWARFAttributeIsExplicit;
+  }
+  bool is_forward_declaration() const {
+    return attr_flags & eDWARFAttributeIsForwardDecl;
+  }
+  bool is_inline() const {
+    return attr_flags & eDWARFAttributeIsInline;
+  }
+  bool is_scoped_enum() const {
+    return attr_flags &eDWARFAttributeIsScopedEnum;
+  }
+  bool is_vector() const {
+    return attr_flags & eDWARFAttributeIsVector;
+  }
+  bool is_virtual() const {
+    return attr_flags & eDWARFAttributeIsVirtual;
+  }
+  bool is_external() const {
+    return attr_flags & eDWARFAttributeIsExternal;
+  }
+  bool exports_symbols() const {
+    return attr_flags & eDWARFAttributeExportSymbols;
+  }
+  bool is_objc_direct_call() const {
+    return attr_flags & eDWARFAttributeIsObjCDirect;
+  }
+  bool is_objc_complete_type() const {
+    return attr_flags & eDWARFAttributeIsObjCCompleteType;
+  }
 };
 
 #endif // LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFATTRIBUTE_H

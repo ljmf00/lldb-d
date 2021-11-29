@@ -10,6 +10,7 @@
 
 #include "DWARFASTParser.h"
 #include "DWARFASTParserClang.h"
+#include "DWARFAttribute.h"
 #include "DWARFDebugInfo.h"
 #include "DWARFDeclContext.h"
 #include "DWARFDefines.h"
@@ -284,135 +285,6 @@ static void PrepareContextToReceiveMembers(TypeSystemClang &ast,
   // We don't have a type definition and/or the import failed. We must
   // forcefully complete the type to avoid crashes.
   ForcefullyCompleteType(type);
-}
-
-ParsedDWARFTypeAttributes::ParsedDWARFTypeAttributes(const DWARFDIE &die) {
-  DWARFAttributes attributes;
-  size_t num_attributes = die.GetAttributes(attributes);
-  for (size_t i = 0; i < num_attributes; ++i) {
-    dw_attr_t attr = attributes.AttributeAtIndex(i);
-    DWARFFormValue form_value;
-    if (!attributes.ExtractFormValueAtIndex(i, form_value))
-      continue;
-    switch (attr) {
-    case DW_AT_abstract_origin:
-      abstract_origin = form_value;
-      break;
-
-    case DW_AT_accessibility:
-      accessibility = DWARFASTParser::GetAccessTypeFromDWARF(form_value.Unsigned());
-      break;
-
-    case DW_AT_artificial:
-      is_artificial = form_value.Boolean();
-      break;
-
-    case DW_AT_bit_stride:
-      bit_stride = form_value.Unsigned();
-      break;
-
-    case DW_AT_byte_size:
-      byte_size = form_value.Unsigned();
-      break;
-
-    case DW_AT_byte_stride:
-      byte_stride = form_value.Unsigned();
-      break;
-
-    case DW_AT_calling_convention:
-      calling_convention = form_value.Unsigned();
-      break;
-
-    case DW_AT_containing_type:
-      containing_type = form_value;
-      break;
-
-    case DW_AT_decl_file:
-      // die.GetCU() can differ if DW_AT_specification uses DW_FORM_ref_addr.
-      decl.SetFile(
-          attributes.CompileUnitAtIndex(i)->GetFile(form_value.Unsigned()));
-      break;
-    case DW_AT_decl_line:
-      decl.SetLine(form_value.Unsigned());
-      break;
-    case DW_AT_decl_column:
-      decl.SetColumn(form_value.Unsigned());
-      break;
-
-    case DW_AT_declaration:
-      is_forward_declaration = form_value.Boolean();
-      break;
-
-    case DW_AT_encoding:
-      encoding = form_value.Unsigned();
-      break;
-
-    case DW_AT_enum_class:
-      is_scoped_enum = form_value.Boolean();
-      break;
-
-    case DW_AT_explicit:
-      is_explicit = form_value.Boolean();
-      break;
-
-    case DW_AT_external:
-      if (form_value.Unsigned())
-        storage = clang::SC_Extern;
-      break;
-
-    case DW_AT_inline:
-      is_inline = form_value.Boolean();
-      break;
-
-    case DW_AT_linkage_name:
-    case DW_AT_MIPS_linkage_name:
-      mangled_name = form_value.AsCString();
-      break;
-
-    case DW_AT_name:
-      name.SetCString(form_value.AsCString());
-      break;
-
-    case DW_AT_object_pointer:
-      object_pointer = form_value.Reference();
-      break;
-
-    case DW_AT_signature:
-      signature = form_value;
-      break;
-
-    case DW_AT_specification:
-      specification = form_value;
-      break;
-
-    case DW_AT_type:
-      type = form_value;
-      break;
-
-    case DW_AT_virtuality:
-      is_virtual = form_value.Boolean();
-      break;
-
-    case DW_AT_APPLE_objc_complete_type:
-      is_complete_objc_class = form_value.Signed();
-      break;
-
-    case DW_AT_APPLE_objc_direct:
-      is_objc_direct_call = true;
-      break;
-
-    case DW_AT_APPLE_runtime_class:
-      class_language = (LanguageType)form_value.Signed();
-      break;
-
-    case DW_AT_GNU_vector:
-      is_vector = form_value.Boolean();
-      break;
-    case DW_AT_export_symbols:
-      exports_symbols = form_value.Boolean();
-      break;
-    }
-  }
 }
 
 static std::string GetUnitName(const DWARFDIE &die) {
@@ -764,7 +636,7 @@ TypeSP DWARFASTParserClang::ParseEnum(const SymbolContext &sc,
   const dw_tag_t tag = die.Tag();
   TypeSP type_sp;
 
-  if (attrs.is_forward_declaration) {
+  if (attrs.is_forward_declaration()) {
     type_sp = ParseTypeFromClangModule(sc, die, log);
     if (type_sp)
       return type_sp;
@@ -833,7 +705,7 @@ TypeSP DWARFASTParserClang::ParseEnum(const SymbolContext &sc,
         attrs.name.GetStringRef(),
         GetClangDeclContextContainingDIE(die, nullptr),
         GetOwningClangModule(die), attrs.decl, enumerator_clang_type,
-        attrs.is_scoped_enum);
+        attrs.is_scoped_enum());
   } else {
     enumerator_clang_type = m_ast.GetEnumerationIntegerType(clang_type);
   }
@@ -1012,8 +884,8 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
           clang::ObjCMethodDecl *objc_method_decl =
               m_ast.AddMethodToObjCObjectType(
                   class_opaque_type, attrs.name.GetCString(), clang_type,
-                  attrs.accessibility, attrs.is_artificial, is_variadic,
-                  attrs.is_objc_direct_call);
+                  attrs.accessibility, attrs.is_artificial(), is_variadic,
+                  attrs.is_objc_direct_call());
           type_handled = objc_method_decl != NULL;
           if (type_handled) {
             LinkDeclContextToDIE(objc_method_decl, die);
@@ -1161,14 +1033,14 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
                         m_ast.AddMethodToCXXRecordType(
                             class_opaque_type.GetOpaqueQualType(),
                             attrs.name.GetCString(), attrs.mangled_name,
-                            clang_type, attrs.accessibility, attrs.is_virtual,
-                            is_static, attrs.is_inline, attrs.is_explicit,
-                            is_attr_used, attrs.is_artificial);
+                            clang_type, attrs.accessibility, attrs.is_virtual(),
+                            is_static, attrs.is_inline(), attrs.is_explicit(),
+                            is_attr_used, attrs.is_artificial());
 
                     type_handled = cxx_method_decl != NULL;
                     // Artificial methods are always handled even when we
                     // don't create a new declaration for them.
-                    type_handled |= attrs.is_artificial;
+                    type_handled |= attrs.is_artificial();
 
                     if (cxx_method_decl) {
                       LinkDeclContextToDIE(cxx_method_decl, die);
@@ -1265,8 +1137,8 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
         function_decl = m_ast.CreateFunctionDeclaration(
             ignore_containing_context ? m_ast.GetTranslationUnitDecl()
                                       : containing_decl_ctx,
-            GetOwningClangModule(die), name, clang_type, attrs.storage,
-            attrs.is_inline);
+            GetOwningClangModule(die), name, clang_type, attrs.is_external() ? clang::SC_Extern : clang::SC_None,
+            attrs.is_inline());
         std::free(name_buf);
 
         if (has_template_params) {
@@ -1276,7 +1148,7 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
               ignore_containing_context ? m_ast.GetTranslationUnitDecl()
                                         : containing_decl_ctx,
               GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
-              attrs.storage, attrs.is_inline);
+              attrs.is_external() ? clang::SC_Extern : clang::SC_None, attrs.is_inline());
           clang::FunctionTemplateDecl *func_template_decl =
               m_ast.CreateFunctionTemplateDecl(
                   containing_decl_ctx, GetOwningClangModule(die),
@@ -1350,7 +1222,7 @@ TypeSP DWARFASTParserClang::ParseArrayType(const DWARFDIE &die,
     for (auto pos = array_info->element_orders.rbegin(); pos != end; ++pos) {
       num_elements = *pos;
       clang_type = m_ast.CreateArrayType(array_element_type, num_elements,
-                                         attrs.is_vector);
+                                         attrs.is_vector());
       array_element_type = clang_type;
       array_element_bit_stride = num_elements
                                      ? array_element_bit_stride * num_elements
@@ -1358,7 +1230,7 @@ TypeSP DWARFASTParserClang::ParseArrayType(const DWARFDIE &die,
     }
   } else {
     clang_type =
-        m_ast.CreateArrayType(array_element_type, 0, attrs.is_vector);
+        m_ast.CreateArrayType(array_element_type, 0, attrs.is_vector());
   }
   ConstString empty_name;
   TypeSP type_sp = std::make_shared<Type>(
@@ -1618,12 +1490,12 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
     //
     // Note that there is no DW_AT_declaration and there are no children,
     // and the byte size is zero.
-    attrs.is_forward_declaration = true;
+    attrs.attr_flags |= eDWARFAttributeIsForwardDecl;
   }
 
   if (attrs.class_language == eLanguageTypeObjC ||
       attrs.class_language == eLanguageTypeObjC_plus_plus) {
-    if (!attrs.is_complete_objc_class &&
+    if (!attrs.is_objc_complete_type() &&
         die.Supports_DW_AT_APPLE_objc_complete_type()) {
       // We have a valid eSymbolTypeObjCClass class symbol whose name
       // matches the current objective C class that we are trying to find
@@ -1664,7 +1536,7 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
     }
   }
 
-  if (attrs.is_forward_declaration) {
+  if (attrs.is_forward_declaration()) {
     // We have a forward declaration to a type and we need to try and
     // find a full declaration. We look in the current type index just in
     // case we have a forward declaration followed by an actual
@@ -1783,7 +1655,7 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
       clang_type = m_ast.CreateRecordType(
           decl_ctx, GetOwningClangModule(die), attrs.accessibility,
           attrs.name.GetCString(), tag_decl_kind, attrs.class_language,
-          &metadata, attrs.exports_symbols);
+          &metadata, attrs.exports_symbols());
     }
   }
 
@@ -1795,7 +1667,7 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
       die.GetID(), dwarf, attrs.name, attrs.byte_size, nullptr,
       LLDB_INVALID_UID, Type::eEncodingIsUID, &attrs.decl, clang_type,
       Type::ResolveState::Forward,
-      TypePayloadClang(OptionalClangModuleID(), attrs.is_complete_objc_class));
+      TypePayloadClang(OptionalClangModuleID(), attrs.is_objc_complete_type()));
 
   // Add our type to the unique type map so we don't end up creating many
   // copies of the same type over and over in the ASTContext for our
@@ -1807,7 +1679,7 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
   dwarf->GetUniqueDWARFASTTypeMap().Insert(unique_typename,
                                            *unique_ast_entry_up);
 
-  if (!attrs.is_forward_declaration) {
+  if (!attrs.is_forward_declaration()) {
     // Always start the definition for a class type so that if the class
     // has child classes or types that require the class to be created
     // for use as their decl contexts the class will be ready to accept
