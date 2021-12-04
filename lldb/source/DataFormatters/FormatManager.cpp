@@ -578,7 +578,9 @@ FormatManager::GetCandidateLanguages(lldb::LanguageType lang_type) {
     return {
       lldb::eLanguageTypeC_plus_plus,
       lldb::eLanguageTypeObjC,
-      // FIXME: Add a proper TypeSystem for D
+    };
+  case lldb::eLanguageTypeD:
+    return {
       lldb::eLanguageTypeD
     };
   default:
